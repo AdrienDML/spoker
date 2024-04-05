@@ -1,15 +1,38 @@
 [package]
-license = "mit"
-name = "rust-nix-template"
+name = "spoker"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+bevy = {workspace = true}
+hot-lib-reloader = { version = "0.7", optional = true }
+components = { path = "components" }
+systems = { path = "systems" }
 
-[package.metadata.nix]
-# Toggle app flake output
-app = true
-# Toggle flake outputs that build (checks, package and app)
-build = true
+[profile.dev.package."*"]
+opt-level = 3
+
+[workspace]
+members = ["systems", "components"]
+
+[workspace.dependencies.bevy]
+version = "0.13"
+features = [
+    "dynamic_linking",
+    "wayland"
+] 
+
+[workspace.dependencies]
+leafwing-input-manager = "0.13"
+#seldom_state = "0.10"
+bitflags = "2.4"
+
+[features]
+default = []
+reload = [
+  "dep:hot-lib-reloader",
+  # Make sure that the types don't change:
+  "components/dynamic",
+  # This is important on windows for avoiding file locking issues:
+  "bevy/dynamic_linking",
+]

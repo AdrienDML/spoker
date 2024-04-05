@@ -14,9 +14,14 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    wgsl-nix = {
+        url = "github:AdrienDML/wgsl-nix";
+        inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, crane, fenix }:
+  outputs = { self, nixpkgs, flake-utils, crane, fenix, wgsl-nix}:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -29,20 +34,38 @@
           cargo-expand
         ]);
 
+        wgsl-env = [wgsl-nix.packages.${system}.default]; 
+
+        buildInputs = with pkgs; [
+          pkg-config
+          udev 
+          alsa-lib
+          vulkan-loader
+          vulkan-tools
+          xorg.libX11
+          xorg.libXcursor 
+          xorg.libXi
+          xorg.libXrandr # To use the x11 feature
+          libxkbcommon
+          wayland
+        ];
+
         # Crane setup.
         craneLib = (crane.mkLib pkgs).overrideToolchain rust-toolchain;
+
         # Source.
         src = craneLib.cleanCargoSource (craneLib.path ./.);
         commonArgs = {
-          inherit src;
-          buildInputs = [ ];
+          inherit src buildInputs;
         };
+
         # Deps.
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         my-crate = craneLib.buildPackage (commonArgs // {
           inherit cargoArtifacts;
         });
+
       in
       {
         checks = {
@@ -68,7 +91,11 @@
         };
 
         devShells.default = pkgs.mkShell {
-          nativeBuildInputs = rust-env;
+          inherit buildInputs;
+          nativeBuildInputs = rust-env ++ wgsl-env;
+
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (buildInputs);
+          WINIT_UNIX_BACKEND="x11";
         };
 
         formatter = pkgs.nixpkgs-fmt;
