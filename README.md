@@ -25,3 +25,7 @@ p'(t) = p''(t-1) * dt * .5
 resolve_colisions()
 p(t) = p'(t)
 p'(t) = p''(t-1) * dt * .5
+
+
+# Aery patterns
+

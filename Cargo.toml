@@ -4,16 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = {workspace = true}
-hot-lib-reloader = { version = "0.7", optional = true }
-components = { path = "components" }
-systems = { path = "systems" }
+bevy = { workspace = true }
+aery = { workspace = true }
+bevy_rapier3d = { workspace = true }
+leafwing-input-manager = { workspace = true }
 
 [profile.dev.package."*"]
 opt-level = 3
-
-[workspace]
-members = ["systems", "components"]
 
 [workspace.dependencies.bevy]
 version = "0.13"
@@ -24,15 +21,8 @@ features = [
 
 [workspace.dependencies]
 leafwing-input-manager = "0.13"
+# leafwing_input_playback
 #seldom_state = "0.10"
+aery = "0.6"
 bitflags = "2.4"
-
-[features]
-default = []
-reload = [
-  "dep:hot-lib-reloader",
-  # Make sure that the types don't change:
-  "components/dynamic",
-  # This is important on windows for avoiding file locking issues:
-  "bevy/dynamic_linking",
-]
+bevy_rapier3d = "0.25"
