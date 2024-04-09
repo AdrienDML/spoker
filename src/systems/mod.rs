@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{
     prelude::*,
     render::mesh::PlaneMeshBuilder,
@@ -71,7 +73,7 @@ pub fn setup_world(
     commands.spawn(PbrBundle {
         mesh: cube_mesh,
         material: cube_mat,
-        transform: Transform::from_translation(Vec3::Y * 0.5),
+        transform: Transform::from_translation(Vec3::Y * 0.5).with_rotation(Quat::from_axis_angle(Vec3::Y, PI/6.0)),
         ..default()
     });
 

@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use crate::components::player::*;
 use crate::prelude::*;
 use crate::settings::movement::*;
@@ -18,7 +20,8 @@ impl Plugin for PlayerPlugin {
             InputManagerPlugin::<Movement>::default(),
             InputManagerPlugin::<Mouse>::default(),
         ))
-        .add_systems(Update, update);
+        .add_systems(Update, collect_inputs)
+        .add_systems(FixedUpdate, update);
 
         #[cfg(debug_assertions)]
         app.add_plugins((
@@ -27,53 +30,59 @@ impl Plugin for PlayerPlugin {
         ))
         .add_systems(
             Update,
-            (manage_player_control, update_noclip, update_flycam),
+            (manage_player_control, update_flycam, update_noclip),
         );
     }
 }
 
 const SPEED: f32 = 7.0;
 
-#[no_mangle]
-pub fn update(
+pub fn collect_inputs(
     window: Query<&Window, With<PrimaryWindow>>,
-    time: Res<Time<Virtual>>,
     mouse_settings: Res<MouseSettings>,
-    mut players: RelQuery<
-        ParentOf,
+    mut players: Query<
         (
-            &mut Transform,
-            &mut ExternalImpulse,
+            &mut Inputs,
+            &Transform,
             &ActionState<Movement>,
             &ActionState<Mouse>,
         ),
+        With<Player>,
+    >,
+) {
+    let window = window.single();
+    for (mut wish, transform, movement, mouse) in &mut players {
+        let forward = *transform.forward();
+        let right = *transform.right();
+        let dir = movement.axis_pair(&Movement::Horizontal).unwrap().xy();
+        wish.dir = dir.y * forward + dir.x * right;
+        wish.jump = movement.pressed(&Movement::Up);
+        wish.crouch = movement.pressed(&Movement::Down);
+        wish.mouse += -mouse.axis_pair(&Mouse {}).unwrap().xy()
+            / Vec2::new(window.width(), window.height())
+            * Vec2::new(mouse_settings.h_sens, mouse_settings.v_sens);
+        // Clamp vertical.
+        wish.mouse.y = wish.mouse.y.clamp(-PI / 2.0, PI / 2.0);
+    }
+}
+
+#[no_mangle]
+pub fn update(
+    time: Res<Time<Virtual>>,
+    mut players: RelQuery<
+        ParentOf,
+        (&Inputs, &mut Transform, &mut ExternalImpulse),
         (Without<NoClip>, Without<FlyCam>, With<Player>),
     >,
     mut player_cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>,
 ) {
-    let window = window.single();
-    for ((mut transform, mut impulse, movement, mouse), edges) in &mut players {
-        edges.join::<ParentOf>(&mut player_cam).for_each(|mut cam_transform| {
-            if movement.pressed(&Movement::Horizontal) {
-                let forward = transform.forward();
-                let right = transform.right();
-                let dir = movement.axis_pair(&Movement::Horizontal).unwrap().xy()
-                    * time.delta_seconds()
-                    * SPEED;
-                impulse.impulse += dir.y * *forward + dir.x * *right;
-            }
-
-            if mouse.pressed(&Mouse {}) {
-                let dir = -mouse.axis_pair(&Mouse {}).unwrap().xy()
-                    / Vec2::new(window.width(), window.height())
-                    * Vec2::new(mouse_settings.h_sens, mouse_settings.v_sens);
-
-                cam_transform.rotate_x(dir.y);
-                transform.rotate_y(dir.x);
-            }
-
-            if movement.pressed(&Movement::Up) {}
-        });
-
+    for ((inputs, mut transform, mut impulse), edges) in &mut players {
+        edges
+            .join::<ParentOf>(&mut player_cam)
+            .for_each(|mut cam_transform| {
+                impulse.impulse += inputs.dir * time.delta_seconds() * SPEED;
+                *cam_transform = cam_transform.with_rotation(Quat::from_rotation_x(inputs.mouse.y));
+                *transform = transform.with_rotation(Quat::from_rotation_y(inputs.mouse.x));
+            });
     }
 }

@@ -1,7 +1,8 @@
+use std::f32::consts::PI;
+
 use crate::components::player::*;
 use crate::prelude::*;
 use crate::settings::movement::*;
-use bevy::window::PrimaryWindow;
 use bevy_rapier3d::dynamics::RigidBodyDisabled;
 
 pub fn manage_player_control(
@@ -55,16 +56,12 @@ pub fn manage_player_control(
 
 #[no_mangle]
 pub fn update_flycam(
-    window: Query<&Window, With<PrimaryWindow>>,
     time: Res<Time<Virtual>>,
-    mouse_settings: Res<MouseSettings>,
     fly_settings: Res<FlySettings>,
     mut players: RelQuery<
         ParentOf,
         (
-            &Transform,
-            &ActionState<Movement>,
-            &ActionState<Mouse>,
+            &Inputs,
             &ActionState<FlyAction>,
             &mut FlyCam,
         ),
@@ -72,35 +69,24 @@ pub fn update_flycam(
     >,
     mut player_cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>,
 ) {
-    let window = window.single();
-    for ((transform, movement, mouse, fly_action, mut fly), edges) in &mut players {
+    for ((inputs, fly_action, mut fly), edges) in &mut players {
         edges
             .join::<ParentOf>(&mut player_cam)
             .for_each(|mut cam_transform| {
-                if movement.pressed(&Movement::Horizontal) {
-                    let mut forward = *cam_transform.forward();
-                    if !fly_action.pressed(&FlyAction::SwitchMode) {
-                        forward = forward.reject_from_normalized(*transform.up());
-                    }
-                    let left = *cam_transform.local_x();
-                    let dir = movement.axis_pair(&Movement::Horizontal).unwrap().xy()
-                        * time.delta_seconds()
-                        * fly.speed;
-                    cam_transform.translation += dir.y * forward + dir.x * left;
+                let mut dir = cam_transform.rotation * inputs.dir;
+                if !fly_action.pressed(&FlyAction::SwitchMode) {
+                    dir = dir.reject_from_normalized(Vec3::Y);
                 }
+                dir *= time.delta_seconds() * fly.speed;
+                cam_transform.translation += dir;
 
-                if mouse.pressed(&Mouse {}) {
-                    let dir = -mouse.axis_pair(&Mouse {}).unwrap().xy()
-                        / Vec2::new(window.width(), window.height())
-                        * Vec2::new(mouse_settings.h_sens, mouse_settings.v_sens);
+                cam_transform.rotation = Quat::from_rotation_y(inputs.mouse.x)
+                * Quat::from_rotation_x(inputs.mouse.y);
 
-                    cam_transform.rotate_local_x(dir.y);
-                    cam_transform.rotate_y(dir.x);
-                }
-
-                if movement.pressed(&Movement::Up) {
+                if inputs.jump {
                     cam_transform.translation += Vec3::Y * fly.speed * time.delta_seconds();
-                } else if movement.pressed(&Movement::Down) {
+                } 
+                if inputs.crouch {
                     cam_transform.translation -= Vec3::Y * fly.speed * time.delta_seconds();
                 }
 
@@ -115,52 +101,35 @@ pub fn update_flycam(
 
 #[no_mangle]
 pub fn update_noclip(
-    window: Query<&Window, With<PrimaryWindow>>,
     time: Res<Time<Virtual>>,
-    mouse_settings: Res<MouseSettings>,
     fly_settings: Res<FlySettings>,
     mut players: RelQuery<
         ParentOf,
         (
+            &Inputs,
             &mut NoClip,
             &mut Transform,
-            &ActionState<Movement>,
-            &ActionState<Mouse>,
             &ActionState<FlyAction>,
         ),
         (With<NoClip>, With<Player>),
     >,
     mut player_cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>,
 ) {
-    let window = window.single();
-    for ((mut noclip, mut transform, movement, mouse, fly), edges) in &mut players {
+    for ((inputs, mut noclip, mut transform, fly), edges) in &mut players {
         edges
             .join::<ParentOf>(&mut player_cam)
             .for_each(|mut cam_transform| {
-                if movement.pressed(&Movement::Horizontal) {
-                    let mut forward = *cam_transform.forward();
-                    if !fly.pressed(&FlyAction::SwitchMode) {
-                        forward = forward.reject_from_normalized(*transform.up());
-                    }
-                    let right = *transform.right();
-                    let dir = movement.axis_pair(&Movement::Horizontal).unwrap().xy()
-                        * time.delta_seconds()
-                        * noclip.0;
-                    transform.translation += dir.y * forward + dir.x * right;
-                }
+                let dir = inputs.dir
+                    * time.delta_seconds()
+                    * noclip.0;
+                transform.translation += dir;
+                *cam_transform = cam_transform.with_rotation(Quat::from_rotation_x(inputs.mouse.y));
+                *transform = transform.with_rotation(Quat::from_rotation_y(inputs.mouse.x));
 
-                if mouse.pressed(&Mouse {}) {
-                    let dir = -mouse.axis_pair(&Mouse {}).unwrap().xy()
-                        / Vec2::new(window.width(), window.height())
-                        * Vec2::new(mouse_settings.h_sens, mouse_settings.v_sens);
-
-                    cam_transform.rotate_x(dir.y);
-                    transform.rotate_y(dir.x);
-                }
-
-                if movement.pressed(&Movement::Up) {
+                if inputs.jump {
                     transform.translation += Vec3::Y * noclip.0 * time.delta_seconds();
-                } else if movement.pressed(&Movement::Down) {
+                } 
+                if inputs.crouch {
                     transform.translation -= Vec3::Y * noclip.0 * time.delta_seconds();
                 }
 

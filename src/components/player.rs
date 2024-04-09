@@ -10,6 +10,15 @@ pub struct NoClip(pub f32);
 
 // No clip speed.
 #[derive(Component)]
+pub struct Inputs {
+    pub dir: Vec3,
+    pub jump: bool,
+    pub crouch: bool,
+    pub mouse: Vec2,
+}
+
+// No clip speed.
+#[derive(Component)]
 pub struct FlyCam {
     pub speed: f32,
     pub return_pos: Transform,
@@ -36,6 +45,12 @@ pub enum FlyAction {
     SwitchMode,
     IncSpeed,
     DecSpeed,
+}
+
+#[derive(Reflect, Actionlike, Clone, Eq, PartialEq, Hash)]
+pub enum State {
+    Grounded,
+    InAir,
 }
 
 //#[derive(Reflect, Actionlike, Clone, Eq, PartialEq, Hash)]
@@ -97,6 +112,12 @@ impl Command for SpawnPlayerCmd {
                     InputManagerBundle::with_map(InputMap::new([(Mouse {}, DualAxis::mouse_motion())])),
                     InputManagerBundle::with_map(control_input_map),
                     InputManagerBundle::with_map(fly_input_map),
+                    Inputs {
+                        dir: Vec3::ZERO,
+                        jump: false,
+                        crouch: false,
+                        mouse: Vec2::ZERO,
+                    }
                 ),
                 // Physics Related.
                 (
