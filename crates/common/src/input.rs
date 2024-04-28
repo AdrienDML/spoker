@@ -63,7 +63,7 @@ impl Default for MouseSettings {
     }
 }
 // Mouse Component Tracking.
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone, Copy)]
 pub struct Mouse {
     pub total: Vec2,
     pub delta: Vec2,

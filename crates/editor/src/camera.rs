@@ -26,7 +26,7 @@ pub struct MainCam;
 #[derive(Component)]
 pub struct Pan;
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct FlyCam {
     speed: f32,
 }
@@ -39,11 +39,12 @@ impl Default for FlyCam {
 
 pub fn manage_pancam(
     input: Res<ButtonInput<MouseButton>>,
-    query: Query<Entity, (With<MainCam>, Without<FlyCam>)>,
+    mut query: Query<(Entity, &mut input::Mouse), (With<MainCam>, Without<FlyCam>)>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut commands: Commands,
+    mut mouse_cached: Local<input::Mouse>,
 ) {
-    let Ok(entity) = query.get_single() else {
+    let Ok((entity, mut mouse)) = query.get_single_mut() else {
         return;
     };
     let cursor = &mut window.single_mut().cursor;
@@ -54,6 +55,7 @@ pub fn manage_pancam(
             .entity(entity)
             .insert(Pan)
             .remove::<input::DontUpdate<input::Mouse>>();
+        *mouse = *mouse_cached;
     } else if input.just_released(MouseButton::Middle) {
         cursor.grab_mode = CursorGrabMode::None;
         cursor.visible = true;
@@ -61,16 +63,18 @@ pub fn manage_pancam(
             .entity(entity)
             .remove::<Pan>()
             .insert(input::DontUpdate::<input::Mouse>::default());
+        *mouse_cached = *mouse;
     }
 }
 
 pub fn manage_flycam(
     input: Res<ButtonInput<MouseButton>>,
-    query: Query<Entity, (With<MainCam>, Without<Pan>)>,
+    mut query: Query<(Entity, &mut input::Mouse, Option<&FlyCam>), (With<MainCam>, Without<Pan>)>,
     mut commands: Commands,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
+    mut cached: Local<(input::Mouse, FlyCam)>
 ) {
-    let Ok(entity) = query.get_single() else {
+    let Ok((entity, mut mouse, flycam)) = query.get_single_mut() else {
         return;
     };
     let cursor = &mut window.single_mut().cursor;
@@ -79,17 +83,22 @@ pub fn manage_flycam(
         cursor.visible = false;
         commands
             .entity(entity)
-            .insert(FlyCam::default())
+            .insert(cached.1)
             .remove::<input::DontUpdate<input::Mouse>>()
             .remove::<input::DontUpdate<input::MovAxis3>>();
+        *mouse = cached.0;
     } else if input.just_released(MouseButton::Right) {
         cursor.grab_mode = CursorGrabMode::None;
         cursor.visible = true;
+        
         commands
             .entity(entity)
             .remove::<FlyCam>()
             .insert(input::DontUpdate::<input::Mouse>::default())
             .insert(input::DontUpdate::<input::MovAxis3>::default());
+
+        // Fly cam should be present.
+        *cached = (*mouse, *flycam.unwrap());
     }
 }
 
