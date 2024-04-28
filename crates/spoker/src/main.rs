@@ -19,12 +19,15 @@ fn main() {
             ..default()
         }),
         Aery,
-        settings::SettingsPlugin,
-        player::PlayerPlugin,
+        common::input::InputPlugin,
         RapierPhysicsPlugin::<NoUserData>::default(),
-        RapierDebugRenderPlugin::default(),
     ))
-    .add_systems(Update, (release_cursor_on_esc, draw_gizmos))
+    .add_plugins(player::PlayerPlugin)
+    .add_systems(Update, release_cursor_on_esc)
     .add_systems(Startup, setup_world);
+
+    #[cfg(debug_assertions)]
+    app.add_plugins(debug::DebugPlugin);
+
     app.run();
 }

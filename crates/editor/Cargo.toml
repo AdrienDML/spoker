@@ -1,0 +1,12 @@
+[package]
+name = "editor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true }
+bevy_infinite_grid = {workspace = true}
+common = { path = "../common" }
+
+[lints]
+workspace = true

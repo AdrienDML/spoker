@@ -1,0 +1,13 @@
+[package]
+name = "spoker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true }
+aery = { workspace = true }
+common = { path = "../common" }
+bevy_rapier3d = { workspace = true }
+
+[lints]
+workspace = true

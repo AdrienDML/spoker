@@ -1,16 +1,11 @@
-[package]
-name = "spoker"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-bevy = { workspace = true }
-aery = { workspace = true }
-bevy_rapier3d = { workspace = true }
-leafwing-input-manager = { workspace = true }
-
-[profile.dev.package."*"]
-opt-level = 3
+[workspace]
+resolver = "2"
+members = [
+    "crates/spoker",
+    "crates/common",
+    "crates/editor",
+]
+exclude = []
 
 [workspace.dependencies.bevy]
 version = "0.13"
@@ -21,8 +16,26 @@ features = [
 
 [workspace.dependencies]
 leafwing-input-manager = "0.13"
-# leafwing_input_playback
-#seldom_state = "0.10"
+bevy_commandify = "0.3"
 aery = "0.6"
-bitflags = "2.4"
 bevy_rapier3d = "0.25"
+bevy_console = "0.11"
+iyes_perf_ui = "0.2"
+bevy_infinite_grid = "0.12"
+# When updated ?
+# bevy_smud = "0.7"
+
+# leafwing_input_playback
+# seldom_state = "0.10"
+# bitflags = "2.4"
+
+[workspace.lints.clippy]
+type_complexity = "allow"
+unused_code = "allow"
+unreachable_code = "allow"
+[workspace.lints.rust]
+dead_code = "allow"
+
+[profile.dev.package."*"]
+opt-level = 3
+

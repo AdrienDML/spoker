@@ -23,7 +23,7 @@ where
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
-        self.prev.as_ref().or(Some(&self.curr)).unwrap()
+        self.prev.as_ref().unwrap_or(&self.curr)
     }
 }
 
@@ -49,7 +49,7 @@ impl<C: Component + Clone> Prev<C> {
     }
 
     fn prev(&self) -> &C {
-        self.prev.as_ref().or(Some(&self.curr)).unwrap()
+        self.prev.as_ref().unwrap_or(&self.curr)
     }
 }
 

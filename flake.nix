@@ -92,7 +92,7 @@
 
         devShells.default = pkgs.mkShell {
           inherit buildInputs;
-          nativeBuildInputs = rust-env ++ wgsl-env;
+          nativeBuildInputs = rust-env ++ wgsl-env ++ [pkgs.just];
 
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (buildInputs);
           WINIT_UNIX_BACKEND="x11";
