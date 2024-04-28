@@ -118,9 +118,10 @@ pub fn update_flycam(
         return;
     };
     let scaled_speed = fly_cam.speed * time.delta_seconds();
+    let translation = (mov.horizontal_in_local(&cam_transform) +
+        mov.vertical()) * scaled_speed;
+    cam_transform.translation += translation;
     cam_transform.rotation = mouse.yaw() * mouse.pitch();
-    mov.apply_horizontal_in_local(&mut cam_transform, scaled_speed);
-    mov.apply_vertical(&mut cam_transform, scaled_speed);
 }
 
 pub fn update_flycam_speed(

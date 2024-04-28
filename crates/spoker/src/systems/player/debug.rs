@@ -12,7 +12,7 @@ pub fn manage_player_control(
     mut player_cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>,
 ) {
     for (player, noclip, flycam, childrens) in &players {
-        let mut p_cam = player_cam.iter_many_mut(childrens);
+        let p_cam = &mut player_cam.iter_many_mut(childrens);
         let mut cam_transform = p_cam.fetch_next().expect("No Player Camera Found");
         if keys.just_pressed(KeyCode::F1) {
             if noclip.is_some() {
@@ -46,7 +46,10 @@ pub fn manage_player_control(
 pub fn update_flycam(
     time: Res<Time<Virtual>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
-    mut players: Query<(&Mouse, &MovAxis3, &mut FlyCam, &Children), (With<FlyCam>, With<Player>)>,
+    mut players: Query<
+        (&Mouse, &MovAxis3, &mut FlyCam, &Children),
+        (With<FlyCam>, With<Player>),
+    >,
     mut player_cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>,
 ) {
     for (mouse, mov, fly, childrens) in &mut players {
@@ -55,14 +58,18 @@ pub fn update_flycam(
 
         let scaled_fly_speed = fly.speed * time.delta_seconds();
         // Put direction in camera space.
-        if mouse_button.pressed(MouseButton::Right) {
-            mov.apply_dir_in_local(&mut cam_transform, scaled_fly_speed)
+        let translation = if mouse_button.pressed(MouseButton::Right) {
+            mov.horizontal_in_local(&cam_transform) + mov.vertical()
         } else {
-            mov.apply_dir(&mut cam_transform, scaled_fly_speed)
+            mouse.yaw() * mov.horizontal() + mov.vertical()
+        };
+        if !translation.is_nan() {
+            cam_transform.translation += translation * scaled_fly_speed;
         }
 
+
         // Set looking direction.
-        mouse.apply_mouse_rot(&mut cam_transform);
+        cam_transform.rotation = mouse.yaw() * mouse.pitch();
     }
 }
 
@@ -80,9 +87,11 @@ pub fn update_noclip(
 
         let scaled_speed = noclip.0 * time.delta_seconds();
 
-        mov.apply_dir(&mut transform, scaled_speed);
+        let translation = mov.total_movement_in_local(&transform) * scaled_speed;
+        transform.translation += translation;
+        transform.rotation = mouse.yaw();
 
+        // Setting the camera vertical motion.
         *cam_transform = cam_transform.with_rotation(mouse.pitch());
-        *transform = transform.with_rotation(mouse.yaw());
     }
 }

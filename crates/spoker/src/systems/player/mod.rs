@@ -1,7 +1,7 @@
 use crate::components::player::*;
 use crate::prelude::*;
 use bevy_rapier3d::dynamics::ExternalImpulse;
-use common::input::{MovAxis3, Mouse};
+use common::input::{Mouse, MovAxis3};
 
 #[cfg(debug_assertions)]
 mod debug;
@@ -14,6 +14,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, update);
 
+        // Add debug cameras.
         #[cfg(debug_assertions)]
         app.add_systems(
             Update,
@@ -24,11 +25,16 @@ impl Plugin for PlayerPlugin {
 
 const SPEED: f32 = 7.0;
 
-
 pub fn update(
     time: Res<Time<Virtual>>,
     mut players: Query<
-        (&Mouse, &MovAxis3, &mut Transform, &mut ExternalImpulse, &Children),
+        (
+            &Mouse,
+            &MovAxis3,
+            &mut Transform,
+            &mut ExternalImpulse,
+            &Children,
+        ),
         (Without<NoClip>, Without<FlyCam>, With<Player>),
     >,
     mut player_cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>,
@@ -39,7 +45,7 @@ pub fn update(
 
         let scaled_speed = SPEED * time.delta_seconds();
 
-        impulse.impulse += axis.dir_in_local(&transform, scaled_speed);
+        impulse.impulse += axis.total_movement_in_local(&transform) * scaled_speed;
 
         *cam_transform = cam_transform.with_rotation(mouse.pitch());
         *transform = transform.with_rotation(mouse.yaw());

@@ -132,36 +132,34 @@ pub struct MovAxis3 {
 }
 
 impl MovAxis3 {
-    pub fn as_horizontal(&self) -> Vec3 {
+    pub fn horizontal(&self) -> Vec3 {
         self.forward * Vec3::NEG_Z + self.lateral * Vec3::NEG_X
     }
 
-    pub fn normalized_horizontal(&self) -> Vec3 {
-        self.as_horizontal().normalize()
+    pub fn horizontal_in_local(&self, local: &Transform) -> Vec3 {
+        local.rotation * self.horizontal()
     }
 
     pub fn vertical(&self) -> Vec3 {
         self.vertical * Vec3::Y
     }
 
+    pub fn vertical_in_local(&self, local: &Transform) -> Vec3 {
+        local.rotation * self.vertical()
+    }
+
     pub fn total_movement(&self) -> Vec3 {
-        self.as_horizontal() + self.vertical()
+        self.horizontal() + self.vertical()
     }
 
-    pub fn apply_vertical(&self, transform: &mut Transform, scaled_speed: f32) {
-        transform.translation += self.vertical() * scaled_speed;
+    pub fn total_movement_in_local(&self, local: &Transform) -> Vec3 {
+        local.rotation * (self.horizontal() + self.vertical())
     }
 
-    pub fn apply_horizontal_in_local(&self, transform: &mut Transform, scaled_speed: f32) {
-        transform.translation += transform.rotation * self.as_horizontal() * scaled_speed;
-    }
-
-    pub fn apply_in_local(&self, transform: &mut Transform, scaled_speed: f32) {
-        transform.translation += transform.rotation * self.total_movement() * scaled_speed;
-    }
-
-    pub fn apply(&self, transform: &mut Transform, scaled_speed: f32) {
-        transform.translation += self.total_movement() * scaled_speed;
+    pub fn plane_restricted_in_local(&self, local: &Transform, normal: Vec3) -> Vec3 {
+        let dir = local.rotation * self.horizontal_in_local(local);
+        let norm = dir.length();
+        dir.reject_from(normal).normalize() * norm
     }
 }
 
