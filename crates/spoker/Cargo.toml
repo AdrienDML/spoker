@@ -7,7 +7,6 @@ edition = "2021"
 bevy = { workspace = true }
 aery = { workspace = true }
 common = { path = "../common" }
-bevy_rapier3d = { workspace = true }
 
 [lints]
 workspace = true

@@ -6,17 +6,19 @@ use bevy::input::{mouse::MouseMotion, InputSystem};
 use bevy::window::PrimaryWindow;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct InputCollection;
+pub struct InputCollectionSytem;
 
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MovAxis3Settings>();
+        app.init_resource::<MovAxis2Settings>();
+        app.init_resource::<AxisSettings>();
         app.init_resource::<MouseSettings>();
         app.add_systems(
             PreUpdate,
-            (update_mouse, update_mov3)
-                .in_set(InputCollection)
+            (update_mouse, update_mov3, update_mov2, update_axis, on_mouse_added)
+                .in_set(InputCollectionSytem)
                 .after(InputSystem),
         );
     }
@@ -84,7 +86,7 @@ impl Mouse {
 
     pub fn pan_amount(&self, transform: &mut Transform) {
         let pan_amount = self.delta;
-        transform.translation += pan_amount.y * *transform.up() + pan_amount.x * *transform.right()
+        transform.translation += pan_amount.y * *transform.up() - pan_amount.x * *transform.right()
     }
 }
 
@@ -107,6 +109,21 @@ pub fn update_mouse(
     });
 }
 
+pub fn on_mouse_added(
+    window: Query<&Window, With<PrimaryWindow>>,
+    settings: Res<MouseSettings>,
+    mut mouse_input: Query<(&mut Mouse, &Transform), Added<Mouse>>,
+) {
+    let window = window.single();
+    for (mut mouse, transform) in &mut mouse_input {
+        println!("Mouse Aded");
+        let (x, y, _) = transform.rotation.to_euler(EulerRot::XYZ);
+        mouse.total =
+            Vec2::new(-x, -y) / settings.as_vec2() * Vec2::new(window.width(), window.height());
+        println!("Mouse set to: {}", mouse.total);
+    }
+}
+
 #[derive(Component, Resource)]
 pub struct MovAxis3Settings {
     forward: (KeyCode, KeyCode),
@@ -124,16 +141,56 @@ impl Default for MovAxis3Settings {
     }
 }
 
+#[derive(Component, Resource)]
+pub struct AxisSettings(pub KeyCode, pub KeyCode);
+
+impl Default for AxisSettings {
+    fn default() -> Self {
+        Self(KeyCode::Space, KeyCode::KeyQ)
+    }
+}
+
+#[derive(Component, Default)]
+pub struct Axis {
+    pub pos: f32,
+    pub neg: f32,
+}
+
+impl Axis {
+    pub fn value(&self) -> f32 {
+        self.pos - self.neg
+    }
+
+    pub fn is_pos_pressed(&self) -> bool {
+        self.pos != 0.0
+    }
+
+    pub fn is_neg_pressed(&self) -> bool {
+        self.neg != 0.0
+    }
+}
+
+pub fn update_axis(
+    settings: Res<AxisSettings>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(&mut Axis, Option<&AxisSettings>), Without<DontUpdate<MovAxis3>>>,
+) {
+    query.iter_mut().for_each(|(mut axis, _settings)| {
+        let settings = _settings.unwrap_or(&settings);
+        *axis = keyboard_input.axis(settings.0, settings.1);
+    });
+}
+
 #[derive(Component, Default)]
 pub struct MovAxis3 {
-    forward: f32,
-    lateral: f32,
-    vertical: f32,
+    pub forward: Axis,
+    pub lateral: Axis,
+    pub vertical: Axis,
 }
 
 impl MovAxis3 {
     pub fn horizontal(&self) -> Vec3 {
-        self.forward * Vec3::NEG_Z + self.lateral * Vec3::NEG_X
+        self.forward.value() * Vec3::NEG_Z + self.lateral.value() * Vec3::NEG_X
     }
 
     pub fn horizontal_in_local(&self, local: &Transform) -> Vec3 {
@@ -141,7 +198,7 @@ impl MovAxis3 {
     }
 
     pub fn vertical(&self) -> Vec3 {
-        self.vertical * Vec3::Y
+        self.vertical.value() * Vec3::Y
     }
 
     pub fn vertical_in_local(&self, local: &Transform) -> Vec3 {
@@ -191,8 +248,21 @@ impl Default for MovAxis2Settings {
     }
 }
 
-#[derive(Component, Deref, DerefMut, Default)]
-pub struct MovAxis2(Vec3);
+#[derive(Component, Default)]
+pub struct MovAxis2 {
+    forward: Axis,
+    lateral: Axis,
+}
+
+impl MovAxis2 {
+    pub fn movement_3d(&self) -> Vec3 {
+        self.forward.value() * Vec3::NEG_Z + self.lateral.value() * Vec3::NEG_X
+    }
+
+    pub fn movement_3d_in_local(&self, local: &Transform) -> Vec3 {
+        local.rotation * self.movement_3d()
+    }
+}
 
 pub fn update_mov2(
     settings: Res<MovAxis2Settings>,
@@ -201,7 +271,7 @@ pub fn update_mov2(
 ) {
     query.iter_mut().for_each(|(mut mov, _settings)| {
         let settings = _settings.unwrap_or(&settings);
-        **mov = keyboard_input.axis(settings.forward.0, settings.forward.1) * Vec3::NEG_Z
-            + keyboard_input.axis(settings.lateral.0, settings.lateral.1) * Vec3::NEG_X
+        mov.forward = keyboard_input.axis(settings.forward.0, settings.forward.1);
+        mov.lateral = keyboard_input.axis(settings.lateral.0, settings.lateral.1);
     });
 }

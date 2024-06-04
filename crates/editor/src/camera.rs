@@ -5,6 +5,8 @@ use bevy::{
 };
 use common::input;
 
+use crate::RunOnMapFocused;
+
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
@@ -15,13 +17,16 @@ impl Plugin for CameraPlugin {
                 update_flycam_speed,
                 (manage_flycam, update_flycam).chain(),
                 (manage_pancam, update_pancam).chain(),
-            ),
+            ).in_set(RunOnMapFocused),
         );
     }
 }
 
 #[derive(Component)]
-pub struct MainCam;
+pub struct UiCamera;
+
+#[derive(Component)]
+pub struct MapCamera;
 
 #[derive(Component)]
 pub struct Pan;
@@ -39,7 +44,7 @@ impl Default for FlyCam {
 
 pub fn manage_pancam(
     input: Res<ButtonInput<MouseButton>>,
-    mut query: Query<(Entity, &mut input::Mouse), (With<MainCam>, Without<FlyCam>)>,
+    mut query: Query<(Entity, &mut input::Mouse), (With<MapCamera>, Without<FlyCam>)>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut commands: Commands,
     mut mouse_cached: Local<input::Mouse>,
@@ -69,7 +74,7 @@ pub fn manage_pancam(
 
 pub fn manage_flycam(
     input: Res<ButtonInput<MouseButton>>,
-    mut query: Query<(Entity, &mut input::Mouse, Option<&FlyCam>), (With<MainCam>, Without<Pan>)>,
+    mut query: Query<(Entity, &mut input::Mouse, Option<&FlyCam>), (With<MapCamera>, Without<Pan>)>,
     mut commands: Commands,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut cached: Local<(input::Mouse, FlyCam)>
@@ -103,7 +108,7 @@ pub fn manage_flycam(
 }
 
 pub fn update_pancam(
-    mut query: Query<(&mut Transform, &input::Mouse), (With<MainCam>, With<Pan>)>,
+    mut query: Query<(&mut Transform, &input::Mouse), (With<MapCamera>, With<Pan>)>,
 ) {
     for (mut cam_transform, mouse) in &mut query {
         mouse.pan_amount(&mut cam_transform)
@@ -112,7 +117,7 @@ pub fn update_pancam(
 
 pub fn update_flycam(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &FlyCam, &input::Mouse, &input::MovAxis3), With<MainCam>>,
+    mut query: Query<(&mut Transform, &FlyCam, &input::Mouse, &input::MovAxis3), With<MapCamera>>,
 ) {
     let Ok((mut cam_transform, fly_cam, mouse, mov)) = query.get_single_mut() else {
         return;
@@ -126,7 +131,7 @@ pub fn update_flycam(
 
 pub fn update_flycam_speed(
     mut mouse_wheel: EventReader<MouseWheel>,
-    mut query: Query<&mut FlyCam, With<MainCam>>,
+    mut query: Query<&mut FlyCam, With<MapCamera>>,
 ) {
     let wheel_motion = mouse_wheel.read().fold(0f32, |tot, wheel| tot + wheel.y);
     for mut fly_cam in &mut query {

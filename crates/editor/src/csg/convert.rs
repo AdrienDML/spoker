@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use bevy::math::primitives::*;
 
-use super::BrushMesh;
+use super::{BrushMesh, Plane};
 
 pub trait Brushable: Sized {
     type Settings: Default;
@@ -30,6 +30,15 @@ impl Brushable for Cuboid {
             half_size.flip_yz(),
             half_size.flip(),
             half_size.flip_xy(),
+        ]);
+
+        let planes = brush.add_planes([
+            Plane::new(half_size.x * Vec3::X, Vec3::X),
+            Plane::new(half_size.x * Vec3::NEG_X, Vec3::NEG_X),
+            Plane::new(half_size.y * Vec3::Y, Vec3::Y),
+            Plane::new(half_size.y * Vec3::NEG_Y, Vec3::NEG_Y),
+            Plane::new(half_size.z * Vec3::Z, Vec3::Z),
+            Plane::new(half_size.z * Vec3::NEG_Z, Vec3::NEG_Z),
         ]);
 
         brush.add_polygons([

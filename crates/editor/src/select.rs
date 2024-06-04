@@ -1,5 +1,13 @@
 use crate::{csg::brush_mesh::{HalfEdgeId, PolygonId, VerticeId}, prelude::*};
 
+pub struct SelectPlugin; 
+
+impl Plugin for SelectPlugin {
+    fn build(&self, app: &mut App) {
+        todo!()
+    }
+}
+
 #[derive(Resource)]
 pub enum SelectMode {
     Object,

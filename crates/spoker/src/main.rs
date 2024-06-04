@@ -1,7 +1,7 @@
-use bevy::window::Cursor;
-use bevy::window::CursorGrabMode;
-use spoker::prelude::*;
-use spoker::systems::*;
+use bevy::window::{Cursor, CursorGrabMode};
+
+use spoker::*;
+use prelude::*;
 
 fn main() {
     let mut app = App::new();
@@ -17,17 +17,25 @@ fn main() {
                 ..default()
             }),
             ..default()
-        }),
+        }).set(bevy::log::LogPlugin {
+                filter:"player::movement=info,common::physics=info,component::player=info".to_string(),
+                ..default()
+            }),
         Aery,
         common::input::InputPlugin,
-        RapierPhysicsPlugin::<NoUserData>::default(),
+        common::physics::PhysicsPlugin,
     ))
-    .add_plugins(player::PlayerPlugin)
-    .add_systems(Update, release_cursor_on_esc)
-    .add_systems(Startup, setup_world);
+    .add_plugins((
+            environement::EnvironementPlugin,
+            player::PlayerPlugin,
+            ui::UiPlugin,
+    ));
+
+
 
     #[cfg(debug_assertions)]
-    app.add_plugins(debug::DebugPlugin);
+    app.add_plugins(spoker::debug::DebugPlugin);
 
     app.run();
 }
+

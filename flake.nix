@@ -36,6 +36,12 @@
 
         wgsl-env = [wgsl-nix.packages.${system}.default]; 
 
+        python-env = with pkgs; [
+            python311
+            python311Packages.matplotlib
+            python311Packages.numpy
+        ];
+
         buildInputs = with pkgs; [
           pkg-config
           udev 
@@ -92,7 +98,7 @@
 
         devShells.default = pkgs.mkShell {
           inherit buildInputs;
-          nativeBuildInputs = rust-env ++ wgsl-env ++ [pkgs.just];
+          nativeBuildInputs = rust-env ++ wgsl-env ++ [pkgs.just] ++ python-env;
 
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (buildInputs);
           WINIT_UNIX_BACKEND="x11";

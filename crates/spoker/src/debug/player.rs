@@ -1,9 +1,11 @@
-use crate::components::player::*;
+use crate::player::components::*;
 use crate::prelude::*;
-use bevy_rapier3d::dynamics::RigidBodyDisabled;
-use common::input::{Mouse, MovAxis3};
+use common::input::{Mouse, MovAxis2, Axis};
+use common::physics::prelude::*;
 
+pub type NoDebugFilter = (With<Player>, Without<NoClip>, Without<FlyCam>);
 const FLY_SPEED: f32 = 10.0;
+
 
 pub fn manage_player_control(
     mut commands: Commands,
@@ -29,8 +31,8 @@ pub fn manage_player_control(
         if keys.just_pressed(KeyCode::F2) {
             if let Some(fly_cam) = flycam {
                 // Remove the fly cam component.
-
                 commands.entity(player).remove::<FlyCam>();
+
                 // Reset the fly cam transform.
                 *cam_transform = fly_cam.return_pos;
             } else {
@@ -47,22 +49,23 @@ pub fn update_flycam(
     time: Res<Time<Virtual>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut players: Query<
-        (&Mouse, &MovAxis3, &mut FlyCam, &Children),
+        (&Mouse, &MovAxis2, &Axis, &mut FlyCam, &Children),
         (With<FlyCam>, With<Player>),
     >,
     mut player_cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>,
 ) {
-    for (mouse, mov, fly, childrens) in &mut players {
+    for (mouse, mov, vert, fly, childrens) in &mut players {
         let mut p_cam = player_cam.iter_many_mut(childrens);
         let mut cam_transform = p_cam.fetch_next().expect("No Player Camera Found");
-
         let scaled_fly_speed = fly.speed * time.delta_seconds();
+
         // Put direction in camera space.
         let translation = if mouse_button.pressed(MouseButton::Right) {
-            mov.horizontal_in_local(&cam_transform) + mov.vertical()
+            mov.movement_3d_in_local(&cam_transform) + vert.value() * Vec3::Y
         } else {
-            mouse.yaw() * mov.horizontal() + mov.vertical()
+            mouse.yaw() * mov.movement_3d() + vert.value() * Vec3::Y
         };
+
         if !translation.is_nan() {
             cam_transform.translation += translation * scaled_fly_speed;
         }
@@ -76,18 +79,18 @@ pub fn update_flycam(
 pub fn update_noclip(
     time: Res<Time<Virtual>>,
     mut players: Query<
-        (&Mouse, &MovAxis3, &mut NoClip, &mut Transform, &Children),
-        (With<NoClip>, With<Player>),
+        (&Mouse, &MovAxis2, &Axis, &mut NoClip, &mut Transform, &Children),
+        (With<NoClip>, Without<FlyCam>, With<Player>),
     >,
     mut player_cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>,
 ) {
-    for (mouse, mov, noclip, mut transform, childrens) in &mut players {
+    for (mouse, mov, vert, noclip, mut transform, childrens) in &mut players {
         let mut cam = player_cam.iter_many_mut(childrens);
         let mut cam_transform = cam.fetch_next().expect("No Player Camera Found");
 
         let scaled_speed = noclip.0 * time.delta_seconds();
 
-        let translation = mov.total_movement_in_local(&transform) * scaled_speed;
+        let translation = (mov.movement_3d_in_local(&transform) + vert.value() * Vec3::Y) * scaled_speed;
         transform.translation += translation;
         transform.rotation = mouse.yaw();
 

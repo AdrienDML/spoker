@@ -56,7 +56,7 @@ pub fn move_selection(
     select_mode: Res<SelectMode>,
     mut selected: Query<(
         &mut Transform,
-        &mut BrushMesh,
+        &Handle<BrushMesh>,
         &Selection,
         &input::Mouse,
         Option<&MoveAxis>,

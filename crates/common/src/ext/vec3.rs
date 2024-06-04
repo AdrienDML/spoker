@@ -41,6 +41,10 @@ pub trait Vec3Ext: Sized {
     }
 
     fn in_triangle(self, a: Vec3, b: Vec3, c: Vec3) -> bool;
+
+    fn intersect_plane(self, normal: Vec3, point: Vec3) -> bool;
+
+    fn dist_dir(self) -> Option<(f32, Vec3)>;
 }
 
 impl Vec3Ext for Vec3 {
@@ -91,6 +95,19 @@ impl Vec3Ext for Vec3 {
             && (0.0..1.0).contains(&beta)
             && (0.0..1.0).contains(&gamma)
             && ((alpha + beta + gamma) - 1.0).abs() < f32::EPSILON
+    }
+
+    fn intersect_plane(self, normal: Vec3, point: Vec3) -> bool {
+        (self - point).dot(normal) < 0.0
+    }
+
+    fn dist_dir(self) -> Option<(f32, Vec3)> { 
+        let l = self.length();
+        if l > f32::EPSILON {
+            Some((l, self / l))
+        } else {
+            None
+        }
     }
 }
 

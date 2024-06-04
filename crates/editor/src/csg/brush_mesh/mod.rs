@@ -1,16 +1,16 @@
 use std::array;
 
 mod iter;
+mod iter_mut;
+
+use bevy::math::bounding::Bounded3d;
 pub use iter::*;
 
-use bevy::{
-    math::bounding::Bounded3d,
-    prelude::*,
-};
+use crate::prelude::*;
 
 pub type VerticeId = usize;
 
-#[derive(Reflect)]
+#[derive(Reflect, Clone)]
 pub struct Vertice {
     pub point: Vec3,
     out_half_edges: Vec<HalfEdgeId>,
@@ -38,30 +38,92 @@ impl Vertice {
 pub type HalfEdgeId = usize;
 
 // A half edges is a directed edge from a vertex to another.
-#[derive(Reflect, PartialEq, Eq, Hash)]
+#[derive(Reflect, PartialEq, Eq, Hash, Clone)]
 pub struct HalfEdge {
     pub origin: VerticeId,
     pub end: VerticeId,
     pub polygon: PolygonId,
 }
 
-pub type PolygonId = usize;
+impl HalfEdge {
+    fn direction(&self, vertices: &[Vertice]) -> Vec3 {
+        vertices[self.end].point - vertices[self.origin].point
+    }
 
-#[derive(Reflect)]
-pub struct Plane {
-    point: Vec3,
-    normal: Vec3,
+    fn normalized_direction(&self, vertices: &[Vertice]) -> Vec3 {
+        self.direction(vertices).normalize()
+    }
 }
 
-// Polygon constructed from directed half edges. 
-#[derive(Reflect)]
+pub type PlaneId = usize;
+
+#[derive(Reflect, Clone)]
+pub struct Plane {
+    pub point: Vec3,
+    pub normal: Vec3,
+    polygons: Vec<PolygonId>,
+    holes: Vec<PolygonId>,
+}
+
+impl Plane {
+    pub fn new(point: Vec3, normal: Vec3) -> Self {
+        Self {
+            point,
+            normal,
+            polygons: Vec::new(),
+            holes: Vec::new(),
+        }
+    }
+
+    fn add_polygon(&mut self, polygon: PolygonId) {
+        self.polygons.push(polygon);
+    }
+
+    fn add_hole(&mut self, hole: PolygonId) {
+        self.holes.push(hole);
+    }
+
+}
+
+pub type PolygonId = usize;
+
+#[derive(Reflect, Clone)]
 pub struct Polygon {
     pub verticies: Vec<VerticeId>,
     pub half_edges: Vec<HalfEdgeId>,
-    pub plane: Plane,
+    pub plane: PlaneId,
 }
 
-#[derive(Asset, Reflect, Component)]
+impl Polygon {
+
+    fn is_on_plane(&self, edges: &[HalfEdge], planes: &[Plane], vertices: &[Vertice]) -> bool {
+        let normal = planes[self.plane].normal;
+        for edge in self.half_edges {
+            let edge = edges[edge];
+            let dir = edge.direction(vertices);
+            if dir.cross(normal).length_squared() < f32::EPSILON {
+                continue;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    fn is_convex(&self, edges: &[HalfEdge], vertices: &[Vertice]) -> bool {
+        let nb_edges = self.half_edges.len();
+        for edge in 0..nb_edges {
+            let cur = edges[edge].direction(vertices).flip();
+            let next = edges[(edge + 1) % nb_edges].direction(vertices);
+            if (next.angle_between(cur).abs() - 180.0).abs() > f32::EPSILON {
+                return false;
+            }
+        }
+        return false;
+    }
+}
+
+#[derive(Asset, Reflect, Clone)]
 pub struct BrushMesh {
     verticies: Vec<Vertice>,
     half_edges: Vec<HalfEdge>,
@@ -98,6 +160,22 @@ impl BrushMesh {
         (start..(self.verticies.len() - 1)).collect()
     }
 
+    pub fn add_plane(&mut self, normal: Vec3, point: Vec3) {
+        self.planes.push(Plane::new(normal, point))
+    }
+
+    pub fn add_planes<const N: usize>(&mut self, planes: [Plane; N]) -> [PlaneId; N] {
+        let start = self.planes.len();
+        self.planes.extend(planes.into_iter());
+        array::from_fn(|i| start + i)
+    }
+
+    pub fn extend_planes(&mut self, planes: impl IntoIterator<Item = Plane>) -> Vec<VerticeId> {
+        let start = self.planes.len();
+        self.planes.extend(planes.into_iter());
+        (start..(self.verticies.len() - 1)).collect()
+    }
+
     pub fn get_vertice(&self, id: VerticeId) -> &Vertice {
         &self.verticies[id]
     }
@@ -114,28 +192,17 @@ impl BrushMesh {
         &mut self.half_edges[id]
     }
 
-    pub fn add_polygons<const N: usize>(&mut self, polygons: [&[VerticeId]; N]) -> [PolygonId; N] {
-        let start = self.polygons.len();
-        polygons
-            .into_iter()
-            .for_each(|polygon| { self.add_polygon(polygon); });
-        array::from_fn(|i| start + i)
+    pub fn get_plane(&self, id: PlaneId) -> &Plane {
+        &self.planes[id]
     }
 
-    pub fn extend_polygons<'a, const N: usize>(
-        &mut self,
-        polygons: impl IntoIterator<Item = &'a [VerticeId]>,
-    ) -> [PolygonId; N] {
-        let start = self.polygons.len();
-        polygons
-            .into_iter()
-            .for_each(|polygon| { self.add_polygon(polygon); });
-        array::from_fn(|i| start + i)
+    pub fn get_polygon(&self, id: PolygonId) -> &Polygon {
+        &self.polygons[id]
     }
 
     /// Add a polygon constructing the necessary half edges.
     /// It also adds the contructed half edges
-    pub fn add_polygon(&mut self, vertices: &[VerticeId]) -> PolygonId {
+    pub fn add_polygon(&mut self, vertices: &[VerticeId], plane: PlaneId) -> PolygonId {
         let scaling_factor = vertices.len() as f32;
         assert!(
             scaling_factor >= 3.0,
@@ -179,42 +246,24 @@ impl BrushMesh {
         self.polygons.push(Polygon {
             half_edges,
             verticies: vertices.into(),
-            plane: Plane {
-                point: plane_center,
-                normal: plane_normal,
-            },
+            plane,
         });
         polygon_id
     }
 
-    pub fn polygons(&self) -> BrushPolygons {
-        BrushPolygons {
-            brush: self,
-            current_polygon: 0,
-        }
-    }
-
-    pub fn vertices(&self) -> BrushVerticies {
-        BrushVerticies {
-            brush: self,
-            current_vertice: 0,
-        }
-    }
-
-    pub fn edges(&self) -> BrushEdges {
-        BrushEdges {
-            brush: self,
-            current_edge: 0,
-        }
-    }
 
     pub fn positions(&self) -> Vec<Vec3> {
         self.verticies.iter().map(|v| v.point).collect()
     }
+
+    fn get_plane_mut(&self, id: PlaneId) -> &mut Plane {
+        &mut self.planes[id]
+    }
+
+    fn get_polygon_mut(&self, id: PlaneId) -> &mut Polygon {
+        &mut self.polygons[id]
+    }
 }
-
-
-
 
 impl Bounded3d for BrushMesh {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> bevy::math::bounding::Aabb3d {

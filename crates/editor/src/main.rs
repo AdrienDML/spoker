@@ -1,44 +1,41 @@
-use bevy::{
-    app::AppExit, math::Vec3, window::{Cursor, CursorGrabMode}
-};
 use bevy_infinite_grid::InfiniteGridSettings;
 
-use editor::{
-    camera::{self, MainCam},
-    csg::{self, Brushable},
-    prelude::*,
-};
 use common::input;
+use editor::{
+    camera,
+    csg::{self, brush_mesh::BrushMesh, Brushable, CsgLeaf},
+    prelude::*,
+    ui::{self, MouseOnMap},
+    RunOnMapFocused,
+};
 
-pub fn main() {
-    let mut app = App::new();
-    app.add_plugins((
-        DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Spoker Map Editor".to_string(),
-                cursor: Cursor {
-                    grab_mode: CursorGrabMode::None,
-                    visible: true,
+fn main() {
+    App::new()
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Sickle UI -  Simple Editor".into(),
+                    resolution: (1280., 720.).into(),
                     ..default()
-                },
+                }),
                 ..default()
             }),
-            ..default()
-        }),
-        //RapierPhysicsPlugin::<NoUserData>::default(),
-        bevy_infinite_grid::InfiniteGridPlugin,
-        input::InputPlugin,
-        camera::CameraPlugin,
-        csg::CsgPlugin,
-    ));
-
-    app.add_systems(Startup, setup);
-    app.add_systems(Update, (draw_y_axis, quit_on_ctrl_q));
-
-    app.run()
+            bevy_infinite_grid::InfiniteGridPlugin,
+            input::InputPlugin,
+            camera::CameraPlugin,
+            csg::CsgPlugin,
+        ))
+        .configure_sets(
+            Update,
+            RunOnMapFocused.run_if(resource_equals(MouseOnMap(true))),
+        )
+        .add_systems(Startup, setup.after(ui::setup))
+        .add_systems(Update, draw_y_axis)
+        .add_plugins(ui::UiPlugin)
+        .run();
 }
 
-pub fn setup(mut commands: Commands) {
+pub fn setup(mut commands: Commands, mut brushes: ResMut<Assets<BrushMesh>>) {
     commands.spawn(bevy_infinite_grid::InfiniteGridBundle {
         settings: InfiniteGridSettings {
             x_axis_color: Color::rgb(0.2, 1.0, 0.2),
@@ -49,29 +46,17 @@ pub fn setup(mut commands: Commands) {
     });
 
     commands.spawn((
-        Camera3dBundle::default(),
-        input::Mouse::default(),
-        input::MovAxis3::default(),
-        input::dont_update::<input::Mouse>(),
-        input::dont_update::<input::MovAxis3>(),
-        MainCam,
-    ));
-
-    commands.spawn((
-        Cuboid::from_size(Vec3::splat(3.0)).to_default_brush(),
+        Name::new("Cube"),
+        CsgLeaf,
+        CsgOp::Add,
+        brushes.add(Cuboid::from_size(Vec3::splat(1.0)).to_default_brush()),
+        TransformBundle {
+            local: Transform::from_translation(0.5 * Vec3::Y),
+            ..default()
+        },
     ));
 }
 
 pub fn draw_y_axis(mut gizmos: Gizmos) {
     gizmos.line(Vec3::ZERO, Vec3::Y * 1000., Color::rgb(1.0, 0.2, 0.2))
-}
-
-pub fn quit_on_ctrl_q(
-    mut quit_event: EventWriter<AppExit>,
-    keys: Res<ButtonInput<KeyCode>>,
-) {
-    if keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) 
-    && keys.just_pressed(KeyCode::KeyQ) {
-        quit_event.send(AppExit);
-    }
 }
