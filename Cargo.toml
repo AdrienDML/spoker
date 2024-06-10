@@ -1,28 +1,26 @@
-[workspace]
-resolver = "2"
-members = [
-    "crates/spoker",
-    "crates/common",
-    "crates/editor",
-]
-exclude = []
+[package]
+name = "spoker"
+version = "0.1.0"
+edition = "2021"
 
-[workspace.dependencies.bevy]
+[dependencies.bevy]
 version = "0.13"
 features = [
     "dynamic_linking",
     "wayland"
 ] 
 
-[workspace.dependencies]
+[dependencies]
 leafwing-input-manager = "0.13"
 bevy_commandify = "0.3"
 aery = "0.6"
+clap = "4"
 bevy_rapier3d = "0.25"
 bevy_console = "0.11"
 iyes_perf_ui = "0.2"
 bevy_infinite_grid = "0.12"
 sickle_ui = { git = "https://github.com/Aleod-m/sickle_ui.git", branch = "reexport_math" }
+
 # When updated ?
 # bevy_smud = "0.7"
 
@@ -30,11 +28,16 @@ sickle_ui = { git = "https://github.com/Aleod-m/sickle_ui.git", branch = "reexpo
 # seldom_state = "0.10"
 # bitflags = "2.4"
 
-[workspace.lints.clippy]
+[dependencies.bevy_mod_picking]
+version = "0.18.2"
+features = ["backend_rapier"]
+
+[lints.clippy]
 type_complexity = "allow"
 unused_code = "allow"
 unreachable_code = "allow"
-[workspace.lints.rust]
+
+[lints.rust]
 dead_code = "allow"
 
 [profile.dev.package."*"]
